@@ -1,0 +1,91 @@
+name: Python Build for Linux, macOS, and Windows
+
+on:
+  push:
+    branches:
+      - main 
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller  # Instale o PyInstaller
+
+      - name: Build the project
+        run: |
+          pyinstaller --onefile keywordPDF.py  # Substitua pelo nome do seu script Python
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux-build
+          path: dist/keywordPDF  # Caminho para o binário gerado
+
+  build-macos:
+    runs-on: macos-latest  # Para macOS
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build the project
+        run: |
+          pyinstaller --onefile keywordPDF.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-build
+          path: dist/keywordPDF_macos
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build the project
+        run: |
+          pyinstaller --onefile keywordPDF.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-build
+          path: dist/keywordPDF.exe
