@@ -91,15 +91,15 @@ def check_keywords_in_text(text, keywords):
 def process_pdfs(directory, keywords_file, rename=False, output_csv='output.csv'):
     keywords = load_keywords(keywords_file)
     header = [keyword.replace(',', '-').replace(' ', '_') for keyword in keywords]
-    matrix = [["file_name"] + header]  # Header
+    matrix = [["file_name","company","date"] + header]  # Header
 
     for filename in os.listdir(directory):
         if filename.lower().endswith(".pdf"):
             pdf_path = os.path.join(directory, filename)
             text = extract_text_from_pdf(pdf_path)
+            company, date = find_company_and_date(text)
 
             if rename:
-                company, date = find_company_and_date(text)
                 if company != 'UNKNOWN' and date != '00000000':
                     new_filename = get_unique_filename(directory, f"{company}_{date}.pdf") 
                     new_path = os.path.join(directory, new_filename)
@@ -111,7 +111,7 @@ def process_pdfs(directory, keywords_file, rename=False, output_csv='output.csv'
                     else:
                         print('Could not rename file')
 
-            row = [filename] + check_keywords_in_text(text, keywords)
+            row = [filename, company, date] + check_keywords_in_text(text, keywords)
             matrix.append(row)
 
             if contains_keywords(text, keywords):
