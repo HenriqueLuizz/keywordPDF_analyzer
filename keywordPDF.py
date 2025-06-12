@@ -144,7 +144,16 @@ def main():
         if not os.path.isfile(keywords_file):
             print("Error: Keyword file not found.")
             return
-        config = {'keywords_file': keywords_file, 'pdf_dir': directory, 'output_path': '.'}
+        # When no configuration file is provided we still need to
+        # supply the keys expected later in the script. Otherwise
+        # KeyError exceptions will be raised when accessing
+        # 'keywords_list' or 'renamefiles'.
+        config = {
+            'keywords_list': keywords_file,
+            'renamefiles': args.rename,
+            'pdf_dir': directory,
+            'output_path': '.'
+        }
     else:
         config_file = args.config if args.config else 'config.ini'
         if not os.path.isfile(config_file):
