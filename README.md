@@ -1,80 +1,217 @@
 # KeywordPDF Analyzer
 
-KeywordPDF Analyzer is a tool for processing PDF files, extracting relevant information based on keywords, renaming files, and generating reports in CSV format. This tool is ideal for automating document classification and analysis.
+Uma ferramenta poderosa para análise de documentos PDF com extração de palavras-chave, suporte a OpenAI e conversão para Markdown.
 
-## Features
+## 🚀 Funcionalidades
 
-- Extracts text from PDF files.
-- Identifies specific keywords within the documents.
-- Renames PDF files based on extracted company names and document dates.
-- Generates a CSV report with keyword occurrences in each document.
+- **Análise Tradicional**: Extração de palavras-chave usando regex
+- **Análise com OpenAI**: Análise inteligente usando IA
+- **Conversão para Markdown**: Conversão de PDFs para formato Markdown
+- **Análise Completa**: Combina todos os modos de análise
+- **Configuração Automática**: Suporte a arquivo `config.ini` para configurações persistentes
+- **Flexibilidade**: Argumentos da linha de comando sobrescrevem configurações do arquivo
 
-## Installation
+## 📋 Pré-requisitos
 
-Ensure you have Python installed (>= 3.7). Then, install the required dependencies:
+- Python 3.8+
+- Dependências listadas em `requirements.txt`
 
-```sh
+## 🛠️ Instalação
+
+1. Clone o repositório:
+```bash
+git clone <url-do-repositorio>
+cd keywordPDF_analyzer
+```
+
+2. Crie um ambiente virtual:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# ou
+.venv\Scripts\activate  # Windows
+```
+
+3. Instale as dependências:
+```bash
 pip install -r requirements.txt
 ```
 
-## Usage
-
-Run the script with the following command:
-
-```sh
-python keywordpdf.py --dir <PDF_DIRECTORY> --keywords <KEYWORDS_FILE> [--rename] [--config <CONFIG_FILE>]
+4. Configure a OpenAI (opcional, apenas para análise com IA):
+```bash
+export OPENAI_API_KEY="sua-chave-api-aqui"
 ```
 
-### Parameters:
+## ⚙️ Configuração
 
-- `--dir`: Directory containing PDF files (e.g., `./documents/files/`).
-- `--keywords` or `-k`: File with the list of keywords.
-- `--rename` or `-r`: Enables renaming files in the format `COMPANY_YYYYMMDD.pdf`.
-- `--config` or `-c`: Specifies the configuration file (e.g., `config.ini`).
+### Configuração Automática (Recomendado)
 
-### Example:
+O sistema suporta configuração automática através do arquivo `config.ini`. Na primeira execução, se o arquivo não existir, ele será criado automaticamente com valores padrão.
 
-```sh
-python keywordpdf.py --dir ./pdf_files --keywords keywords.txt --rename --config config.ini
-```
-
-## Configuration File Example (`config.ini`)
+#### Exemplo de `config.ini`:
 
 ```ini
 [CONFIG]
+# Diretórios e arquivos
 keywords_list = keywords.txt
-renamefiles = true
-pdf_dir = ./pdf_files
-output_path = ./output
-regex_date = "\n[\w\s]+, (\d{1,2}) de (\w+) de (\d{4})\."
-regex_company = "COMUNICADO AO MERCADO\s*(.+)"
+pdf_dir = files/
+output_path = results/
+
+# Modos de operação (true/false)
+convert_md = false
+openai = false
+full_analysis = false
+rename = false
+
+# Opções de saída
+include_summary = true
+context_chars = 30
+
+# Opções de processamento
+verbose = false
+
+# Regex patterns (opcional)
+regex_date = \n[\w\s]+,\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})\.?
+regex_company = ^\s*(.+?)\s*(?:S\.A\.|SA|Companhia|CNPJ|NIRE|–)
 ```
 
-## Keywords List File Example (`keywords.txt`)
+### Prioridade de Configuração
 
-Each line will be interpreted as a "keyword," even if it consists of more than one word.
+1. **Linha de comando** (maior prioridade)
+2. **config.ini** (prioridade menor)
+3. **Valores padrão** (última opção)
 
-Note: Spaces will also be considered as a search character.
+## 🎯 Uso
 
-```txt
-aumento de capital
-ações ordinárias
-estrutura administrativa
-ações
-capital
+### Uso Simples (com config.ini)
+
+```bash
+# Executa com configurações do config.ini
+python keyword_analyzer.py
 ```
 
-## Output
+### Uso com Argumentos da Linha de Comando
 
-- **Renamed PDFs** (if `--rename` is enabled)
-- **CSV report**: A file named `output.csv` containing:
+```bash
+# Modo tradicional (sem OpenAI)
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --output results.csv
 
-  ```csv
-  file_name,keyword1,keyword2,keywordN
-  document1.pdf,1,0,1
-  document2.pdf,0,1,1
-  ```
+# Modo com análise OpenAI
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --output results_enriched.csv
 
-## License
+# Modo OpenAI sem coluna resumo
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --no-summary --output results_no_summary.csv
 
-This project is licensed under the MIT License.
+# Modo OpenAI com contexto personalizado
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --context-chars 50 --output results_context.csv
+
+# Converter PDFs para Markdown
+python keyword_analyzer.py --convert-md --dir files/ --output output/
+
+# Análise completa com OpenAI
+python keyword_analyzer.py --full-analysis --dir files/ --keywords keywords.txt --output results/
+```
+
+### Argumentos Disponíveis
+
+#### Argumentos Principais
+- `--dir, -d`: Diretório contendo arquivos PDF (sobrescreve config.ini)
+- `--keywords, -k`: Arquivo com lista de palavras-chave (sobrescreve config.ini)
+- `--output, -o`: Arquivo de saída (sobrescreve config.ini)
+
+#### Modos de Operação
+- `--convert-md`: Converter PDFs para Markdown (sobrescreve config.ini)
+- `--openai`: Habilitar análise com OpenAI (sobrescreve config.ini)
+- `--full-analysis`: Executar análise completa (sobrescreve config.ini)
+
+#### Opções Adicionais
+- `--rename`: Renomear arquivos PDF baseado no conteúdo (sobrescreve config.ini)
+- `--config`: Arquivo de configuração personalizado
+- `--verbose, -v`: Modo verboso (sobrescreve config.ini)
+- `--include-summary`: Incluir coluna resumo no CSV (sobrescreve config.ini)
+- `--no-summary`: Excluir coluna resumo do CSV (sobrescreve config.ini)
+- `--context-chars`: Número de caracteres de contexto antes/depois das palavras-chave (sobrescreve config.ini)
+
+## 📁 Estrutura de Arquivos
+
+```
+keywordPDF_analyzer/
+├── keyword_analyzer.py      # CLI principal
+├── config.ini              # Configuração automática
+├── keywords.txt            # Lista de palavras-chave
+├── requirements.txt        # Dependências
+├── README.md              # Este arquivo
+├── src/                   # Módulos do sistema
+│   ├── __init__.py
+│   ├── config_manager.py  # Gerenciador de configuração
+│   ├── pdf_processor.py   # Processamento de PDFs
+│   ├── openai_analyzer.py # Análise com OpenAI
+│   └── csv_processor.py   # Processamento de CSV
+├── tests/                 # Testes
+│   └── test_core.py
+├── files/                 # Diretório de entrada (padrão)
+└── results/               # Diretório de saída (padrão)
+```
+
+## 🔧 Tratamento de Erros
+
+### Configuração Inválida
+
+Quando o `config.ini` contém erros (arquivos inexistentes, valores inválidos, etc.), o sistema:
+
+1. **Mostra os erros** encontrados
+2. **Pergunta** se deseja prosseguir com valores padrão
+3. **Cria arquivo de exemplo** se necessário
+
+### Exemplo de Interação:
+
+```
+⚠️  Problemas encontrados no arquivo de configuração 'config.ini':
+   - Arquivo de keywords 'keywords.txt' não existe
+   - Diretório de PDFs 'files/' não existe
+
+Deseja prosseguir com valores padrão? (s/N): s
+Usando valores padrão...
+```
+
+## 🧪 Testes
+
+Execute os testes com:
+
+```bash
+# Ative o ambiente virtual primeiro
+source .venv/bin/activate
+
+# Execute os testes
+pytest tests/
+```
+
+## 📊 Saídas
+
+### Análise Tradicional
+- Arquivo CSV com colunas: `filename`, `keywords`, `context`, `date`, `company`
+
+### Análise com OpenAI
+- Arquivo CSV com colunas: `filename`, `keywords`, `context`, `summary` (opcional), colunas individuais para cada keyword
+
+### Conversão Markdown
+- Arquivos `.md` para cada PDF processado
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## 🆘 Suporte
+
+Para suporte e dúvidas:
+1. Verifique a documentação
+2. Execute com `--verbose` para mais detalhes
+3. Abra uma issue no repositório

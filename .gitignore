@@ -171,6 +171,10 @@ cython_debug/
 .pypirc
 
 files
-tests
 config.ini
 keywords.txt
+results/*
+output/*
+old_version/*
+.DS_Store
+.vscode/*
