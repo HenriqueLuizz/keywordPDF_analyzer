@@ -28,13 +28,13 @@ jobs:
 
       - name: Build the project
         run: |
-          pyinstaller --onefile keywordPDF.py  # Substitua pelo nome do seu script Python
+          pyinstaller --onefile keyword_analyzer.py  # Script principal atualizado
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: dist/keywordPDF
+          path: dist/keyword_analyzer
 
   build-macos:
     runs-on: macos-latest
@@ -55,13 +55,13 @@ jobs:
 
       - name: Build the project
         run: |
-          pyinstaller --onefile keywordPDF.py -n keywordPDF_macos
+          pyinstaller --onefile keyword_analyzer.py -n keyword_analyzer_macos
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: dist/keywordPDF_macos
+          path: dist/keyword_analyzer_macos
 
   build-windows:
     runs-on: windows-latest
@@ -82,10 +82,10 @@ jobs:
 
       - name: Build the project
         run: |
-          pyinstaller --onefile keywordPDF.py
+          pyinstaller --onefile keyword_analyzer.py
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/keywordPDF.exe
+          path: dist/keyword_analyzer.exe
