@@ -1,194 +1,217 @@
 # KeywordPDF Analyzer
 
-KeywordPDF Analyzer é uma ferramenta para processar arquivos PDF, extrair informações relevantes baseadas em palavras-chave, renomear arquivos e gerar relatórios em formato CSV. Esta ferramenta é ideal para automatizar a classificação e análise de documentos.
+Uma ferramenta poderosa para análise de documentos PDF com extração de palavras-chave, suporte a OpenAI e conversão para Markdown.
 
-## 🚀 Novidades
+## 🚀 Funcionalidades
 
-- **CLI organizado e amigável** com múltiplos modos de operação
-- **Análise tradicional** (sem OpenAI) - funcionalidade original
-- **Análise com OpenAI** - extração inteligente de informações
-- **Conversão para Markdown** usando docling
-- **Análise completa** combinando ambos os modos
+- **Análise Tradicional**: Extração de palavras-chave usando regex
+- **Análise com OpenAI**: Análise inteligente usando IA
+- **Conversão para Markdown**: Conversão de PDFs para formato Markdown
+- **Análise Completa**: Combina todos os modos de análise
+- **Configuração Automática**: Suporte a arquivo `config.ini` para configurações persistentes
+- **Flexibilidade**: Argumentos da linha de comando sobrescrevem configurações do arquivo
 
-## ✨ Funcionalidades
+## 📋 Pré-requisitos
 
-### Modo Tradicional (Original)
-- Extrai texto de arquivos PDF
-- Identifica palavras-chave específicas nos documentos
-- Renomeia arquivos PDF baseado em nomes de empresas e datas extraídas
-- Gera relatório CSV com ocorrências de palavras-chave em cada documento
+- Python 3.8+
+- Dependências listadas em `requirements.txt`
 
-### Modo OpenAI (Novo)
-- Converte PDFs para Markdown usando docling
-- Analisa documentos com IA para extrair informações estruturadas
-- Enriquece dados com informações de empresa, data e resumo
-- Identifica frases específicas que contêm palavras-chave
+## 🛠️ Instalação
 
-## 📦 Instalação
+1. Clone o repositório:
+```bash
+git clone <url-do-repositorio>
+cd keywordPDF_analyzer
+```
 
-Certifique-se de ter Python instalado (>= 3.7). Em seguida, instale as dependências:
+2. Crie um ambiente virtual:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# ou
+.venv\Scripts\activate  # Windows
+```
 
-```sh
+3. Instale as dependências:
+```bash
 pip install -r requirements.txt
 ```
 
-### Configuração da OpenAI (Opcional)
-
-Para usar as funcionalidades de IA, configure sua chave da API OpenAI:
-
-```sh
+4. Configure a OpenAI (opcional, apenas para análise com IA):
+```bash
 export OPENAI_API_KEY="sua-chave-api-aqui"
-```
-
-Ou crie um arquivo `.env`:
-```
-OPENAI_API_KEY=sua-chave-api-aqui
-```
-
-## 🎯 Uso
-
-### CLI Principal
-
-```sh
-python keyword_analyzer.py [OPÇÕES]
-```
-
-### Modos de Operação
-
-#### 1. Análise Tradicional (Padrão)
-```sh
-python keyword_analyzer.py --dir files/ --keywords keywords.txt --output results.csv
-```
-
-#### 2. Conversão para Markdown
-```sh
-python keyword_analyzer.py --convert-md --dir files/ --output output/
-```
-
-#### 3. Análise com OpenAI
-```sh
-python keyword_analyzer.py --openai --dir files/ --keywords keywords.txt --output results/
-```
-
-#### 4. Análise Completa
-```sh
-python keyword_analyzer.py --full-analysis --dir files/ --keywords keywords.txt --output results/
-```
-
-### Parâmetros
-
-#### Parâmetros Principais
-- `--dir`, `-d`: Diretório contendo arquivos PDF
-- `--keywords`, `-k`: Arquivo com lista de palavras-chave
-- `--output`, `-o`: Arquivo/diretório de saída (padrão: results.csv)
-
-#### Modos de Operação
-- `--convert-md`: Converte PDFs para Markdown
-- `--openai`: Habilita análise com OpenAI
-- `--full-analysis`: Executa análise completa (conversão + OpenAI + keywords)
-
-#### Opções Adicionais
-- `--rename`: Renomeia arquivos PDF baseado no conteúdo
-- `--config`: Arquivo de configuração personalizado
-- `--verbose`, `-v`: Modo verboso
-
-### Exemplos de Uso
-
-```sh
-# Análise básica
-python keyword_analyzer.py --dir ./pdf_files --keywords keywords.txt
-
-# Análise com renomeação de arquivos
-python keyword_analyzer.py --dir ./pdf_files --keywords keywords.txt --rename
-
-# Conversão para Markdown
-python keyword_analyzer.py --convert-md --dir ./pdf_files --output ./markdown_files
-
-# Análise com OpenAI
-python keyword_analyzer.py --openai --dir ./pdf_files --keywords keywords.txt --output ./results
-
-# Análise completa com modo verboso
-python keyword_analyzer.py --full-analysis --dir ./pdf_files --keywords keywords.txt --output ./results --verbose
 ```
 
 ## ⚙️ Configuração
 
-### Arquivo de Configuração (`config.ini`)
+### Configuração Automática (Recomendado)
+
+O sistema suporta configuração automática através do arquivo `config.ini`. Na primeira execução, se o arquivo não existir, ele será criado automaticamente com valores padrão.
+
+#### Exemplo de `config.ini`:
 
 ```ini
 [CONFIG]
+# Diretórios e arquivos
 keywords_list = keywords.txt
-renamefiles = false
 pdf_dir = files/
-output_path = files/
-regex_date = "\n[\w\s]+, (\d{1,2}) de (\w+) de (\d{4})\."
-regex_company = "^\s*(.+?)\s*(?:S\.A\.|SA|Companhia|CNPJ|NIRE|–)"
+output_path = results/
+
+# Modos de operação (true/false)
+convert_md = false
+openai = false
+full_analysis = false
+rename = false
+
+# Opções de saída
+include_summary = true
+context_chars = 30
+
+# Opções de processamento
+verbose = false
+
+# Regex patterns (opcional)
+regex_date = \n[\w\s]+,\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})\.?
+regex_company = ^\s*(.+?)\s*(?:S\.A\.|SA|Companhia|CNPJ|NIRE|–)
 ```
 
-### Arquivo de Palavras-chave (`keywords.txt`)
+### Prioridade de Configuração
 
-Cada linha será interpretada como uma "palavra-chave", mesmo que consista em mais de uma palavra.
+1. **Linha de comando** (maior prioridade)
+2. **config.ini** (prioridade menor)
+3. **Valores padrão** (última opção)
 
-```txt
-aumento de capital
-ações ordinárias
-estrutura administrativa
-ações
-capital
+## 🎯 Uso
+
+### Uso Simples (com config.ini)
+
+```bash
+# Executa com configurações do config.ini
+python keyword_analyzer.py
 ```
 
-## 📊 Saída
+### Uso com Argumentos da Linha de Comando
 
-### Modo Tradicional
-- **PDFs renomeados** (se `--rename` estiver habilitado)
-- **Relatório CSV**: Arquivo com ocorrências de palavras-chave
+```bash
+# Modo tradicional (sem OpenAI)
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --output results.csv
 
-### Modo OpenAI
-- **Arquivos Markdown**: Conversão dos PDFs
-- **Relatório CSV enriquecido**: Com informações extraídas pela IA
+# Modo com análise OpenAI
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --output results_enriched.csv
 
-### Análise Completa
-- **Resultados tradicionais**: `traditional_results.csv`
-- **Resultados OpenAI**: `openai_results.csv`
-- **Arquivos Markdown**: Na pasta `markdown/`
+# Modo OpenAI sem coluna resumo
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --no-summary --output results_no_summary.csv
 
-## 🧪 Testes
+# Modo OpenAI com contexto personalizado
+python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --context-chars 50 --output results_context.csv
 
-Execute os testes para verificar se tudo está funcionando:
+# Converter PDFs para Markdown
+python keyword_analyzer.py --convert-md --dir files/ --output output/
 
-```sh
-python test_cli.py
+# Análise completa com OpenAI
+python keyword_analyzer.py --full-analysis --dir files/ --keywords keywords.txt --output results/
 ```
 
-## 📁 Estrutura do Projeto
+### Argumentos Disponíveis
+
+#### Argumentos Principais
+- `--dir, -d`: Diretório contendo arquivos PDF (sobrescreve config.ini)
+- `--keywords, -k`: Arquivo com lista de palavras-chave (sobrescreve config.ini)
+- `--output, -o`: Arquivo de saída (sobrescreve config.ini)
+
+#### Modos de Operação
+- `--convert-md`: Converter PDFs para Markdown (sobrescreve config.ini)
+- `--openai`: Habilitar análise com OpenAI (sobrescreve config.ini)
+- `--full-analysis`: Executar análise completa (sobrescreve config.ini)
+
+#### Opções Adicionais
+- `--rename`: Renomear arquivos PDF baseado no conteúdo (sobrescreve config.ini)
+- `--config`: Arquivo de configuração personalizado
+- `--verbose, -v`: Modo verboso (sobrescreve config.ini)
+- `--include-summary`: Incluir coluna resumo no CSV (sobrescreve config.ini)
+- `--no-summary`: Excluir coluna resumo do CSV (sobrescreve config.ini)
+- `--context-chars`: Número de caracteres de contexto antes/depois das palavras-chave (sobrescreve config.ini)
+
+## 📁 Estrutura de Arquivos
 
 ```
 keywordPDF_analyzer/
 ├── keyword_analyzer.py      # CLI principal
-├── src/                     # Módulos do sistema
-│   ├── __init__.py
-│   ├── config_manager.py    # Gerenciamento de configuração
-│   ├── pdf_processor.py     # Processamento de PDFs
-│   ├── openai_analyzer.py   # Análise com OpenAI
-│   └── csv_processor.py     # Processamento de CSV
-├── files/                   # Arquivos PDF de entrada
-├── output/                  # Arquivos de saída
-├── config.ini              # Configuração
-├── keywords.txt            # Palavras-chave
+├── config.ini              # Configuração automática
+├── keywords.txt            # Lista de palavras-chave
 ├── requirements.txt        # Dependências
-└── README.md              # Documentação
+├── README.md              # Este arquivo
+├── src/                   # Módulos do sistema
+│   ├── __init__.py
+│   ├── config_manager.py  # Gerenciador de configuração
+│   ├── pdf_processor.py   # Processamento de PDFs
+│   ├── openai_analyzer.py # Análise com OpenAI
+│   └── csv_processor.py   # Processamento de CSV
+├── tests/                 # Testes
+│   └── test_core.py
+├── files/                 # Diretório de entrada (padrão)
+└── results/               # Diretório de saída (padrão)
 ```
 
-## 🔧 Migração da Versão Anterior
+## 🔧 Tratamento de Erros
 
-Se você estava usando a versão anterior (`keywordPDF.py`), pode continuar usando:
+### Configuração Inválida
 
-```sh
-python keywordPDF.py --dir files/ --keywords keywords.txt --rename
+Quando o `config.ini` contém erros (arquivos inexistentes, valores inválidos, etc.), o sistema:
+
+1. **Mostra os erros** encontrados
+2. **Pergunta** se deseja prosseguir com valores padrão
+3. **Cria arquivo de exemplo** se necessário
+
+### Exemplo de Interação:
+
+```
+⚠️  Problemas encontrados no arquivo de configuração 'config.ini':
+   - Arquivo de keywords 'keywords.txt' não existe
+   - Diretório de PDFs 'files/' não existe
+
+Deseja prosseguir com valores padrão? (s/N): s
+Usando valores padrão...
 ```
 
-O novo CLI (`keyword_analyzer.py`) oferece funcionalidades adicionais mantendo compatibilidade com o comportamento original.
+## 🧪 Testes
+
+Execute os testes com:
+
+```bash
+# Ative o ambiente virtual primeiro
+source .venv/bin/activate
+
+# Execute os testes
+pytest tests/
+```
+
+## 📊 Saídas
+
+### Análise Tradicional
+- Arquivo CSV com colunas: `filename`, `keywords`, `context`, `date`, `company`
+
+### Análise com OpenAI
+- Arquivo CSV com colunas: `filename`, `keywords`, `context`, `summary` (opcional), colunas individuais para cada keyword
+
+### Conversão Markdown
+- Arquivos `.md` para cada PDF processado
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
 ## 📄 Licença
 
-Este projeto está licenciado sob a Licença MIT.
+Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## 🆘 Suporte
+
+Para suporte e dúvidas:
+1. Verifique a documentação
+2. Execute com `--verbose` para mais detalhes
+3. Abra uma issue no repositório
