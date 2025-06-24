@@ -132,6 +132,13 @@ Exemplos de uso:
             type=int,
             help="Número de caracteres de contexto antes/depois das palavras-chave (sobrescreve config.ini)"
         )
+
+        parser.add_argument(
+            "--llm-model",
+            type=str,
+            choices=["openai", "gemma:2b", "gemma:3b", "llama2", "llama3", "deepseek"],
+            help="Modelo LLM a ser utilizado (sobrescreve config.ini)"
+        )
         
         return parser
     
@@ -168,13 +175,17 @@ Exemplos de uso:
             merged_config['include_summary'] = False
         if args.context_chars is not None:
             merged_config['context_chars'] = args.context_chars
-        
+        if args.llm_model:
+            merged_config['model'] = args.llm_model
+
         return merged_config
     
     def validate_args(self, args, config: Dict[str, Any]) -> bool:
         """Valida os argumentos fornecidos e configuração"""
         # Usa configuração mesclada
         merged_config = self._merge_config_with_args(args, config)
+
+        self.openai_analyzer.set_model(merged_config.get('model', 'openai'))
         
         # Valida diretório de entrada
         pdf_dir = merged_config.get('pdf_dir')
@@ -239,11 +250,11 @@ Exemplos de uso:
     
     def run_openai_analysis(self, args, config: Dict[str, Any]):
         """Executa análise com OpenAI"""
-        print("Executando análise com OpenAI...")
-        
-        # Verifica se OpenAI está configurada
+        print("Executando análise com modelo IA...")
+
+        # Verifica se modelo está configurado
         if not self.openai_analyzer.is_configured():
-            print("❌ Erro: OpenAI não está configurada. Configure a variável OPENAI_API_KEY")
+            print("❌ Erro: modelo não está configurado")
             return
         
         # Usa configuração mesclada
@@ -364,6 +375,7 @@ Exemplos de uso:
         print(f"   Diretório: {merged_config['pdf_dir']}")
         print(f"   Keywords: {merged_config['keywords_list']}")
         print(f"   Saída: {merged_config['output_path']}")
+        print(f"   Modelo: {merged_config.get('model', 'openai')}")
         print(f"   Modo: {mode}")
         print(f"   Verbose: {merged_config['verbose']}")
         print()

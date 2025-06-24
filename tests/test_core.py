@@ -22,9 +22,9 @@ def test_load_config_defaults(tmp_path):
     cm = ConfigManager()
     config = cm.load_config(str(tmp_path / "nonexistent.ini"))
     assert config["keywords_list"] == "keywords.txt"
-    assert config["renamefiles"] is False
+    assert config["rename"] is False
     assert config["pdf_dir"] == "files/"
-    assert config["output_path"] == "files/"
+    assert config["output_path"] == "results/"
     assert config["regex_date"].pattern
     assert config["regex_company"].pattern
 

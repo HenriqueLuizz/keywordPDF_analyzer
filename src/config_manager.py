@@ -90,6 +90,9 @@ class ConfigManager:
             "keywords_list": config_section.get("keywords_list", "keywords.txt"),
             "pdf_dir": config_section.get("pdf_dir", "files/"),
             "output_path": config_section.get("output_path", "results/"),
+
+            # Modelo LLM
+            "model": config_section.get("model", "openai"),
             
             # Modos de operação
             "convert_md": config_section.get("convert_md", "false").lower() in ('1', 'true'),
@@ -146,6 +149,9 @@ class ConfigManager:
             "keywords_list": "keywords.txt",
             "pdf_dir": "files/",
             "output_path": "results/",
+
+            # Modelo LLM
+            "model": "openai",
             
             # Modos de operação
             "convert_md": False,
@@ -184,6 +190,9 @@ class ConfigManager:
             "keywords_list": "keywords.txt",
             "pdf_dir": "files/",
             "output_path": "results/",
+
+            # Modelo LLM
+            "model": "openai",
             
             # Modos de operação (true/false)
             "convert_md": "false",

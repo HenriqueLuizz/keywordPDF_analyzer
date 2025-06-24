@@ -68,7 +68,8 @@ def test_cli_integration():
         '--dir', '/tmp',
         '--keywords', '/tmp/keywords.txt',
         '--include-summary',
-        '--context-chars', '50'
+        '--context-chars', '50',
+        '--llm-model', 'llama2'
     ])
     assert test_args.include_summary and test_args.context_chars == 50
     test_args_no_summary = parser.parse_args([
@@ -77,5 +78,5 @@ def test_cli_integration():
         '--no-summary',
         '--context-chars', '30'
     ])
-    include_summary = cli._determine_include_summary(test_args_no_summary)
-    assert not include_summary and test_args_no_summary.context_chars == 30 
+    include_summary = cli._determine_include_summary(test_args_no_summary, cli.config.load_config())
+    assert not include_summary and test_args_no_summary.context_chars == 30
