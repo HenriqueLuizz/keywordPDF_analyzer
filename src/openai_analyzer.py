@@ -7,6 +7,8 @@ import json
 import pandas as pd
 import tiktoken
 from typing import Dict, List, Any, Optional
+import requests
+from .local_model import LocalModelManager
 from dotenv import load_dotenv
 
 from .config_manager import ConfigManager
@@ -15,25 +17,36 @@ from .config_manager import ConfigManager
 class OpenAIAnalyzer:
     """Analisador que utiliza OpenAI para processar documentos"""
     
-    def __init__(self):
+    def __init__(self, model: str = "openai"):
         load_dotenv()
         self.config_manager = ConfigManager()
-        
-        # Tenta inicializar cliente OpenAI
-        try:
-            from openai import OpenAI
-            self.client = OpenAI()
+        self.model_provider = model
+        self.local_manager = LocalModelManager()
+
+        # Tenta inicializar cliente OpenAI quando necessário
+        if model == "openai":
+            try:
+                from openai import OpenAI
+                self.client = OpenAI()
+                self._configured = True
+            except ImportError:
+                print("Aviso: openai não está instalado. Execute: pip install openai")
+                self._configured = False
+            except Exception as e:
+                print(f"Aviso: OpenAI não configurada: {e}")
+                self._configured = False
+        else:
             self._configured = True
-        except ImportError:
-            print("Aviso: openai não está instalado. Execute: pip install openai")
-            self._configured = False
-        except Exception as e:
-            print(f"Aviso: OpenAI não configurada: {e}")
-            self._configured = False
+
+    def set_model(self, model: str) -> None:
+        """Atualiza o modelo a ser utilizado"""
+        self.model_provider = model
     
     def is_configured(self) -> bool:
         """Verifica se OpenAI está configurada"""
-        return self._configured and os.getenv("OPENAI_API_KEY") is not None
+        if self.model_provider == "openai":
+            return self._configured and os.getenv("OPENAI_API_KEY") is not None
+        return True
     
     def count_tokens(self, messages: List[Dict[str, str]], model: str = "gpt-4o") -> int:
         """
@@ -80,7 +93,7 @@ class OpenAIAnalyzer:
             Resposta da OpenAI ou dicionário com erro
         """
         if not self.is_configured():
-            return {"error": "OpenAI não está configurada"}
+            return {"error": "Modelo não configurado"}
         
         max_tokens = 16384
         messages = [
@@ -98,7 +111,8 @@ class OpenAIAnalyzer:
             }
         ]
         
-        tokens = self.count_tokens(messages, model="gpt-4o")
+        model_name = "gpt-4o" if self.model_provider == "openai" else self.model_provider
+        tokens = self.count_tokens(messages, model=model_name)
         print(f"Tokens: {tokens}")
         
         # Verifica se o número de tokens excede o limite do modelo
@@ -113,19 +127,36 @@ class OpenAIAnalyzer:
         
         # Se o número de tokens estiver dentro do limite, envia a mensagem para a API
         try:
-            resposta = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                temperature=0.0,
-                top_p=1.0,
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-                max_tokens=max_tokens,
-            )
-            
-            resposta_texto = resposta.choices[0].message.content
+            if self.model_provider == "openai":
+                resposta = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.0,
+                    top_p=1.0,
+                    frequency_penalty=0.0,
+                    presence_penalty=0.0,
+                    max_tokens=max_tokens,
+                )
+                resposta_texto = resposta.choices[0].message.content
+            else:
+                if not self.local_manager.model_exists(self.model_provider):
+                    resp = input(
+                        f"Modelo '{self.model_provider}' não encontrado. Deseja baixar? (s/N): "
+                    ).strip().lower()
+                    if resp in ("s", "sim", "y", "yes"):
+                        self.local_manager.pull_model(self.model_provider)
+                payload = {
+                    "model": self.model_provider,
+                    "messages": messages,
+                    "stream": False,
+                }
+                r = requests.post(
+                    f"{self.local_manager.base_url}/v1/chat/completions",
+                    json=payload,
+                    timeout=60,
+                )
+                resposta_texto = r.json()["choices"][0]["message"]["content"]
             print(resposta_texto)
-            
             return resposta_texto
         except Exception as e:
             return {"error": f"Ocorreu um erro: {e}"}
