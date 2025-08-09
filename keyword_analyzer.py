@@ -1,412 +1,286 @@
 #!/usr/bin/env python3
 """
-KeywordPDF Analyzer - CLI Tool
-Análise de documentos PDF com extração de palavras-chave e integração com OpenAI
+KeywordPDF Analyzer - Análise de documentos PDF com IA
 """
 
 import os
 import sys
-import argparse
-import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 # Importações locais
 from src.pdf_processor import PDFProcessor
-from src.openai_analyzer import OpenAIAnalyzer
+from src.ai_analyzer import AIAnalyzer
 from src.csv_processor import CSVProcessor
 from src.config_manager import ConfigManager
 
+# Rich (opcional) para uma saída mais amigável
+try:
+    from rich.progress import (
+        Progress,
+        SpinnerColumn,
+        BarColumn,
+        TextColumn,
+        TimeElapsedColumn,
+        TimeRemainingColumn,
+        MofNCompleteColumn,
+    )
+    from rich.console import Console
+    from rich.table import Table
+    _RICH_UI = True
+    _RICH_CONSOLE = Console()
+except Exception:
+    _RICH_UI = False
+    _RICH_CONSOLE = None
 
-class KeywordAnalyzerCLI:
-    """CLI principal para o KeywordPDF Analyzer"""
+
+class KeywordAnalyzer:
+    """Analisador principal de documentos PDF"""
     
     def __init__(self):
-        self.config = ConfigManager()
+        self.config_manager = ConfigManager()
         self.pdf_processor = PDFProcessor()
-        self.openai_analyzer = OpenAIAnalyzer()
+        self.ai_analyzer = AIAnalyzer()
         self.csv_processor = CSVProcessor()
     
-    def setup_parser(self) -> argparse.ArgumentParser:
-        """Configura o parser de argumentos da linha de comando"""
-        parser = argparse.ArgumentParser(
-            description="KeywordPDF Analyzer - Análise de documentos PDF com extração de palavras-chave",
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog="""
-Exemplos de uso:
-  # Usando config.ini (recomendado)
-  python keyword_analyzer.py
-  
-  # Modo tradicional (sem OpenAI)
-  python keyword_analyzer.py --dir files/ --keywords keywords.txt --output results.csv
-  
-  # Modo com análise OpenAI
-  python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --output results_enriched.csv
-  
-  # Modo OpenAI sem coluna resumo
-  python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --no-summary --output results_no_summary.csv
-  
-  # Modo OpenAI com contexto personalizado
-  python keyword_analyzer.py --dir files/ --keywords keywords.txt --openai --context-chars 50 --output results_context.csv
-  
-  # Converter PDFs para Markdown
-  python keyword_analyzer.py --convert-md --dir files/ --output output/
-  
-  # Análise completa com OpenAI
-  python keyword_analyzer.py --full-analysis --dir files/ --keywords keywords.txt --output results/
-            """
-        )
-        
-        # Argumentos principais (todos opcionais se config.ini estiver presente)
-        parser.add_argument(
-            "--dir", "-d",
-            type=str,
-            help="Diretório contendo arquivos PDF (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--keywords", "-k",
-            type=str,
-            help="Arquivo com lista de palavras-chave (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--output", "-o",
-            type=str,
-            help="Arquivo de saída (sobrescreve config.ini)"
-        )
-        
-        # Modos de operação (podem vir do config.ini)
-        parser.add_argument(
-            "--convert-md",
-            action="store_true",
-            help="Converter PDFs para Markdown (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--openai",
-            action="store_true",
-            help="Habilitar análise com OpenAI (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--full-analysis",
-            action="store_true",
-            help="Executar análise completa (sobrescreve config.ini)"
-        )
-        
-        # Opções adicionais
-        parser.add_argument(
-            "--rename",
-            action="store_true",
-            help="Renomear arquivos PDF baseado no conteúdo (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--config",
-            type=str,
-            help="Arquivo de configuração personalizado"
-        )
-        
-        parser.add_argument(
-            "--verbose", "-v",
-            action="store_true",
-            help="Modo verboso (sobrescreve config.ini)"
-        )
-        
-        # Novas opções para controle de saída CSV
-        parser.add_argument(
-            "--include-summary",
-            action="store_true",
-            help="Incluir coluna resumo no CSV (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--no-summary",
-            action="store_true",
-            help="Excluir coluna resumo do CSV (sobrescreve config.ini)"
-        )
-        
-        parser.add_argument(
-            "--context-chars",
-            type=int,
-            help="Número de caracteres de contexto antes/depois das palavras-chave (sobrescreve config.ini)"
-        )
-
-        parser.add_argument(
-            "--llm-model",
-            type=str,
-            choices=["openai", "gemma:2b", "gemma:3b", "llama2", "llama3", "deepseek"],
-            help="Modelo LLM a ser utilizado (sobrescreve config.ini)"
-        )
-        
-        return parser
-    
-    def _merge_config_with_args(self, args, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Mescla configurações do config.ini com argumentos da linha de comando"""
-        merged_config = config.copy()
-        
-        # Argumentos principais (linha de comando tem prioridade)
-        if args.dir:
-            merged_config['pdf_dir'] = args.dir
-        if args.keywords:
-            merged_config['keywords_list'] = args.keywords
-        if args.output:
-            merged_config['output_path'] = args.output
-        
-        # Modos de operação (linha de comando tem prioridade)
-        if args.convert_md:
-            merged_config['convert_md'] = True
-        if args.openai:
-            merged_config['openai'] = True
-        if args.full_analysis:
-            merged_config['full_analysis'] = True
-        if args.rename:
-            merged_config['rename'] = True
-        
-        # Opções de processamento
-        if args.verbose:
-            merged_config['verbose'] = True
-        
-        # Opções de saída
-        if args.include_summary:
-            merged_config['include_summary'] = True
-        if args.no_summary:
-            merged_config['include_summary'] = False
-        if args.context_chars is not None:
-            merged_config['context_chars'] = args.context_chars
-        if args.llm_model:
-            merged_config['model'] = args.llm_model
-
-        return merged_config
-    
-    def validate_args(self, args, config: Dict[str, Any]) -> bool:
-        """Valida os argumentos fornecidos e configuração"""
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-
-        self.openai_analyzer.set_model(merged_config.get('model', 'openai'))
-        
-        # Valida diretório de entrada
-        pdf_dir = merged_config.get('pdf_dir')
-        if not pdf_dir:
-            print("❌ Erro: Diretório de entrada não especificado (--dir ou pdf_dir no config.ini)")
-            return False
-        
-        if not os.path.isdir(pdf_dir):
-            print(f"❌ Erro: Diretório '{pdf_dir}' não existe")
-            return False
-        
-        # Valida arquivo de keywords
-        keywords_file = merged_config.get('keywords_list')
-        if keywords_file and not os.path.isfile(keywords_file):
-            print(f"❌ Erro: Arquivo de keywords '{keywords_file}' não existe")
-            return False
-        
-        # Valida arquivo de configuração personalizado
-        if args.config and not os.path.isfile(args.config):
-            print(f"❌ Erro: Arquivo de configuração '{args.config}' não existe")
-            return False
-        
-        # Valida que pelo menos um modo está selecionado
-        modes = [
-            merged_config.get('convert_md', False),
-            merged_config.get('openai', False),
-            merged_config.get('full_analysis', False)
-        ]
-        if not any(modes):
-            print("❌ Erro: Nenhum modo de operação especificado")
-            print("   Use --convert-md, --openai, --full-analysis ou configure no config.ini")
-            return False
-        
-        return True
-    
-    def run_traditional_analysis(self, args, config: Dict[str, Any]):
-        """Executa análise tradicional (sem OpenAI)"""
-        print("Executando análise tradicional...")
-        
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-        
-        # Processa PDFs
-        results = self.pdf_processor.process_directory(
-            directory=merged_config['pdf_dir'],
-            keywords_file=merged_config['keywords_list'],
-            rename_files=merged_config['rename'],
-            verbose=merged_config['verbose']
-        )
-        
-        # Salva resultados
-        output_path = os.path.join(merged_config['output_path'], "traditional_results.csv")
-        
-        self.csv_processor.save_results(
-            results, 
-            output_path,
-            include_summary=merged_config['include_summary'],
-            context_chars=merged_config['context_chars']
-        )
-        
-        print(f"✅ Análise tradicional concluída. Resultados salvos em: {output_path}")
-    
-    def run_openai_analysis(self, args, config: Dict[str, Any]):
-        """Executa análise com OpenAI"""
-        print("Executando análise com modelo IA...")
-
-        # Verifica se modelo está configurado
-        if not self.openai_analyzer.is_configured():
-            print("❌ Erro: modelo não está configurado")
-            return
-        
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-        
-        # Converte PDFs para Markdown se necessário
-        md_dir = os.path.join(merged_config['output_path'], "markdown")
-        if not os.path.exists(md_dir):
-            os.makedirs(md_dir)
-        
-        self.pdf_processor.convert_to_markdown(
-            input_dir=merged_config['pdf_dir'],
-            output_dir=md_dir,
-            verbose=merged_config['verbose']
-        )
-        
-        # Analisa com OpenAI
-        enriched_results = self.openai_analyzer.analyze_documents(
-            markdown_dir=md_dir,
-            keywords_file=merged_config['keywords_list'],
-            verbose=merged_config['verbose'],
-            include_summary=merged_config['include_summary'],
-            context_chars=merged_config['context_chars']
-        )
-        
-        # Salva resultados
-        output_path = os.path.join(merged_config['output_path'], "openai_results.csv")
-        self.csv_processor.save_enriched_results(
-            enriched_results, 
-            output_path,
-            include_summary=merged_config['include_summary']
-        )
-        
-        print(f"✅ Análise com OpenAI concluída. Resultados salvos em: {output_path}")
-    
-    def run_full_analysis(self, args, config: Dict[str, Any]):
-        """Executa análise completa"""
-        print("Executando análise completa...")
-        
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-        
-        # Cria diretório de saída
-        os.makedirs(merged_config['output_path'], exist_ok=True)
-        
-        # Executa análise tradicional
-        self.run_traditional_analysis(args, config)
-        
-        # Executa análise com OpenAI
-        self.run_openai_analysis(args, config)
-        
-        print("✅ Análise completa concluída!")
-    
-    def run_convert_markdown(self, args, config: Dict[str, Any]):
-        """Converte PDFs para Markdown"""
-        print("Convertendo PDFs para Markdown...")
-        
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-        
-        self.pdf_processor.convert_to_markdown(
-            input_dir=merged_config['pdf_dir'],
-            output_dir=merged_config['output_path'],
-            verbose=merged_config['verbose']
-        )
-        
-        print(f"✅ Conversão concluída. Arquivos salvos em: {merged_config['output_path']}")
-    
-    def _determine_include_summary(self, args, config: Dict[str, Any]) -> bool:
-        """Determina se deve incluir resumo baseado nos argumentos e configuração"""
-        # Usa configuração mesclada
-        merged_config = self._merge_config_with_args(args, config)
-        
-        # Se --no-summary foi especificado, não incluir resumo
-        if args.no_summary:
-            return False
-        # Se --include-summary foi especificado explicitamente, incluir resumo
-        if args.include_summary:
-            return True
-        # Usa valor da configuração
-        return merged_config.get('include_summary', True)
-    
     def run(self):
-        """Executa o CLI"""
-        parser = self.setup_parser()
-        args = parser.parse_args()
+        """Executa o fluxo principal de análise"""
+        print("🚀 Iniciando KeywordPDF Analyzer")
+        print("=" * 50)
         
-        # Carrega configuração
-        config = self.config.load_config(args.config)
+        # 1. Carrega configuração
+        config = self.config_manager.load_config()
         
-        # Valida argumentos
-        if not self.validate_args(args, config):
+        # Valida configuração
+        if not self.config_manager.validate_config(config):
+            print("❌ Configuração inválida. Verifique o arquivo config.ini")
             sys.exit(1)
         
-        # Determina modo de operação
-        # Prioridade: linha de comando > config.ini
-        if args.convert_md:
-            mode = "convert_md"
-        elif args.full_analysis:
-            mode = "full_analysis"
-        elif args.openai:
-            mode = "openai"
-        else:
-            # Usa configuração do config.ini
-            if config.get('full_analysis'):
-                mode = "full_analysis"
-            elif config.get('openai'):
-                mode = "openai"
-            elif config.get('convert_md'):
-                mode = "convert_md"
+        # Configura analisador de IA
+        ai_provider = config.get('ai_provider', 'local')
+        ai_model = config.get('ai_model', 'gemma3:latest')
+        self.ai_analyzer.set_provider(ai_provider, ai_model)
+
+        # Verifica se IA está configurada
+        if not self.ai_analyzer.is_configured():
+            if ai_provider == 'openai':
+                print("❌ OpenAI não está configurada. Configure a variável OPENAI_API_KEY")
             else:
-                # Modo padrão: análise tradicional
-                mode = "traditional"
+                print(f"❌ Modelo local '{ai_model}' não está configurado")
+            sys.exit(1)
         
-        # Mostra configuração que será usada
-        merged_config = self._merge_config_with_args(args, config)
-        print(f"🔧 Configuração:")
-        print(f"   Diretório: {merged_config['pdf_dir']}")
-        print(f"   Keywords: {merged_config['keywords_list']}")
-        print(f"   Saída: {merged_config['output_path']}")
-        print(f"   Modelo: {merged_config.get('model', 'openai')}")
-        print(f"   Modo: {mode}")
-        print(f"   Verbose: {merged_config['verbose']}")
+        # Exibe configuração
+        print("🔧 Configuração:")
+        print(f"   Diretório PDF: {config['pdf_dir']}")
+        print(f"   Arquivo keywords: {config['keywords_list']}")
+        print(f"   Provedor IA: {ai_provider}")
+        print(f"   Modelo IA: {ai_model}")
+        print(f"   Verbose: {config['verbose']}")
+        print(f"   Manter markdown: {config['keep_markdown']}")
+        print()
+
+        # 2. Busca arquivos PDF
+        pdf_dir = config['pdf_dir']
+        pdf_files = self.pdf_processor.get_pdf_files(pdf_dir)
+        
+        if not pdf_files:
+            print(f"❌ Nenhum arquivo PDF encontrado em '{pdf_dir}'")
+            sys.exit(1)
+        
+        print(f"📁 Encontrados {len(pdf_files)} arquivos PDF")
         print()
         
-        # Executa comando baseado no modo
+        # 3. Processa cada PDF individualmente
+        print("🔄 Processando arquivos PDF...")
+        # output_path = os.path.join(config['output_path'], 'resultados.csv')
+        
+        # Carrega keywords
         try:
-            if mode == "convert_md":
-                self.run_convert_markdown(args, config)
-            elif mode == "full_analysis":
-                self.run_full_analysis(args, config)
-            elif mode == "openai":
-                self.run_openai_analysis(args, config)
-            else:
-                # Modo tradicional
-                self.run_traditional_analysis(args, config)
-                
-        except KeyboardInterrupt:
-            print("\n❌ Operação cancelada pelo usuário.")
-            sys.exit(1)
+            with open(config['keywords_list'], 'r', encoding='utf-8') as f:
+                keywords = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         except Exception as e:
-            print(f"❌ Erro durante a execução: {e}")
-            if merged_config['verbose']:
-                import traceback
-                traceback.print_exc()
+            print(f"❌ Erro ao carregar keywords: {e}")
             sys.exit(1)
+        
+        if not keywords:
+            print("❌ Nenhuma palavra-chave encontrada no arquivo")
+            sys.exit(1)
+        
+        processed_count = 0
+
+        # if _RICH_UI and _RICH_CONSOLE is not None:
+        progress = Progress(
+            SpinnerColumn(style="cyan"),
+            TextColumn("{task.description}"),
+            TextColumn("[dim]{task.fields[stage]}"),
+            BarColumn(bar_width=None),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("•"),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            console=_RICH_CONSOLE,
+            transient=False,
+        )
+        with progress:
+            task_id = progress.add_task("🔄 Processando PDFs...", total=len(pdf_files), stage="")
+
+            for i, pdf_filename in enumerate(pdf_files):
+                progress.update(task_id, description=f"📄 {os.path.basename(pdf_filename)}", stage="convertendo")
+                try:
+                    # Converte PDF para Markdown sob demanda
+                    pdf_path = os.path.join(pdf_filename)
+                    markdown_content = self.pdf_processor.convert_single_pdf_to_markdown(
+                        pdf_path,
+                        verbose=config['verbose']
+                    )
+
+                    if not markdown_content:
+                        print(f"  ❌ Erro na conversão de {pdf_filename}")
+                        progress.update(task_id, stage="erro")
+                        continue
+
+                    # Analisa documento com IA
+                    progress.update(task_id, stage="analisando")
+                    result = self.ai_analyzer.analyze_document(markdown_content, keywords, config['verbose'])
+
+                    # Prepara dados para o CSV
+                    row_data = {
+                        'filename': pdf_filename,
+                        'company': result.get('company', ''),
+                        'date': result.get('date', ''),
+                        'resumo': result.get('resumo', ''),
+                        'tokens': result.get('tokens', '')
+                    }
+
+                    # Adiciona dados para cada palavra-chave
+                    for keyword in keywords:
+                        if keyword in result and isinstance(result[keyword], list):
+                            sentences = result[keyword]
+                            row_data[keyword] = ' | '.join(sentences) if sentences else ''
+                        else:
+                            row_data[keyword] = ''
+
+                    output_path = os.path.join(config['output_path'], os.path.basename(os.path.dirname(pdf_filename)), 'resultados.csv')
+
+                    # Salva resultado no CSV
+                    progress.update(task_id, stage="salvando")
+                    self.csv_processor.save_single_result_with_keywords(
+                        row_data, 
+                        output_path, 
+                        keywords, 
+                        config['verbose']
+                    )
+
+                    processed_count += 1
+
+                    if result.get('error'):
+                        progress.update(task_id, stage="erro")
+                        print(f"  ❌ Erro: {result['error']}")
+                    else:
+                        progress.update(task_id, stage="análise concluída")
+
+                except Exception as e:
+                    if config['verbose']:
+                        print(f"  ❌ Erro ao processar arquivo {pdf_filename}: {e}")
+                    progress.update(task_id, stage="erro")
+
+                    # Salva linha com erro
+                    row_data = {
+                        'filename': pdf_filename,
+                        'company': '',
+                        'date': '',
+                        'resumo': ''
+                    }
+
+                    # Adiciona colunas vazias para cada palavra-chave
+                    for keyword in keywords:
+                        row_data[keyword] = ''
+
+                    self.csv_processor.save_single_result_with_keywords(
+                        row_data, 
+                        output_path, 
+                        keywords, 
+                        config['verbose']
+                    )
+                finally:
+                    progress.advance(task_id)
+        
+        if processed_count == 0:
+            print("❌ Nenhum arquivo foi processado com sucesso")
+            sys.exit(1)
+        
+        print("✅ Processamento concluído")
+        print()
+        
+        # 4. Exibe resumo
+        self._show_summary(pdf_files, config['output_path'], processed_count)
+
+
+    def _show_summary(self, pdf_files, output_path, processed_count):
+        """Exibe resumo da análise"""
+        print("📊 RESUMO DA ANÁLISE")
+        print("=" * 50)
+        print(f"📄 Arquivos encontrados: {len(pdf_files)}")
+        print(f"✅ Arquivos processados: {processed_count}")
+        # print(f"📁 Arquivos encontrados: {', '.join(pdf_files)}")
+        print(f"💾 Arquivo CSV gerado: {output_path}")
+        
+        # Lê o CSV para estatísticas
+        try:
+            import pandas as pd
+            if os.path.exists(output_path):
+                # Recupera todos os arquivos resultados*.csv
+                results_files = []
+                for root, _, files in os.walk(output_path):
+                    for name in files:
+                        if name.startswith('resultados') and name.endswith('.csv'):
+                            results_files.append(os.path.join(root, name))
+                
+                print(f"📋 Arquivos encontrados: {results_files}")
+                for file in results_files:
+                    print('-' * 50)
+                    print(f"📋 Lendo arquivo: {file}")
+                    df = pd.read_csv(file)
+                    print(f"📋 Registros no CSV: {len(df)}")
+
+                    # Estatísticas dos resultados
+                    if not df.empty:
+                        companies_found = df['company'].str.len() > 0
+                        dates_found = df['date'].str.len() > 0
+                        
+                        tokens_sum = int(df['tokens'].sum())
+                        tokens_mean = int(df['tokens'].mean())
+
+                        print(f"🏢 Empresas identificadas: {companies_found.sum()}")
+                        print(f"📅 Datas extraídas: {dates_found.sum()}")
+                        print(f"⚙️ Tokens utilizados: {tokens_sum}")
+                        print(f"⚙️ Média de tokens: {tokens_mean}")
+
+                        # Conta palavras-chave encontradas
+                        keyword_columns = [col for col in df.columns if col not in ['filename', 'company', 'date', 'resumo', 'tokens']]
+                        for keyword in keyword_columns:
+                            keyword_found = df[keyword].str.len() > 0
+                            print(f"🔍 '{keyword}' encontrada: {keyword_found.sum()}")
+        except Exception as e:
+            print(f"⚠️  Erro ao ler estatísticas do CSV: {e}")
+
+        print("=" * 50)
+        print("✅ Análise concluída com sucesso!")
 
 
 def main():
     """Função principal"""
-    cli = KeywordAnalyzerCLI()
-    cli.run()
+    try:
+        analyzer = KeywordAnalyzer()
+        analyzer.run()
+    except KeyboardInterrupt:
+        print("\n❌ Operação cancelada pelo usuário")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Erro inesperado: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

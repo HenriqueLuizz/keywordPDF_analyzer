@@ -178,3 +178,4 @@ output/*
 old_version/*
 .DS_Store
 .vscode/*
+to_trash/*
