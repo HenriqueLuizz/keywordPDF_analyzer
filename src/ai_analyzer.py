@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from .ai_connector import AIConnectorFactory, AIConnector
 from .config_manager import ConfigManager
 
+MAX_TOKENS = os.getenv("MAX_TOKENS", 128000)
 
 class AIAnalyzer:
     """Analisador que utiliza IA para extrair informações de documentos"""
@@ -155,12 +156,12 @@ class AIAnalyzer:
 
         # Verifica se o número de tokens excede o limite
         tokens = self.connector.count_tokens(messages)
-        if tokens > 16384:
+        if tokens > MAX_TOKENS:
             return {
                 "error": "Documento muito longo. Número de tokens excede o limite do modelo."
             }
         
-        max_tokens = min(tokens * 2, 16384)
+        max_tokens = min(tokens * 2, MAX_TOKENS)
         
         # Gera resposta via conector
         try:

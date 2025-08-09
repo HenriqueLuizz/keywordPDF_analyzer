@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from .local_model import LocalModelManager
 
+TIMEOUT = os.getenv("TIMEOUT", 120) #120s = 2min
 
 class AIConnector(ABC):
     """Classe abstrata para conectores de IA"""
@@ -125,7 +126,7 @@ class LocalAIConnector(AIConnector):
         total_chars = sum(len(msg.get('content', '')) for msg in messages)
         return total_chars // 4
     
-    def generate_response(self, messages: List[Dict[str, str]], max_tokens: int = 16384) -> str:
+    def generate_response(self, messages: List[Dict[str, str]], max_tokens: int = 128000) -> str:
         """Gera resposta via Ollama API local"""
         if not self.is_configured():
             raise Exception(f"Modelo local '{self.model_name}' não está configurado")
@@ -145,7 +146,7 @@ class LocalAIConnector(AIConnector):
             response = requests.post(
                 f"{self.local_manager.base_url}/v1/chat/completions",
                 json=payload,
-                timeout=120,  # Timeout maior para modelos locais
+                timeout=TIMEOUT,  # Timeout maior para modelos locais
             )
             
             if response.status_code != 200:
