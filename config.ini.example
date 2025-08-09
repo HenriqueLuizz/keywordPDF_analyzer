@@ -1,0 +1,27 @@
+[CONFIG]
+# Diretórios e arquivos
+keywords_list = keywords.txt
+pdf_dir = files/
+output_path = files/
+
+# Configuração de IA
+ai_provider = local
+ai_model = gemma3:4b
+
+# Modos de operação (true/false)
+convert_md = false
+full_analysis = false
+rename = false
+
+# Opções de saída
+include_summary = true
+context_chars = 30
+
+# Opções de processamento
+verbose = false
+keep_markdown = false
+
+# Regex patterns (opcional)
+#; regex_date = \n[\w\s]+,\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})\.?
+#; regex_company = ^\s*(.+?)\s*(?:S\.A\.|SA|Companhia|CNPJ|NIRE|–)
+
