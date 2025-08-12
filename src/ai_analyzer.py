@@ -6,6 +6,7 @@ import os
 import json
 import pandas as pd
 from typing import Dict, List, Any, Optional
+import time
 from dotenv import load_dotenv
 
 from .ai_connector import AIConnectorFactory, AIConnector
@@ -50,6 +51,33 @@ class AIAnalyzer:
     def is_configured(self) -> bool:
         """Verifica se o conector está configurado"""
         return self.connector is not None and self.connector.is_configured()
+    
+    def _generate_with_retry(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: int,
+        verbose: bool = False,
+        max_attempts: int = 3,
+        initial_delay_seconds: float = 1.0,
+        backoff_multiplier: float = 2.0,
+    ) -> str:
+        """Chama o conector com retries e backoff exponencial."""
+        attempt_number = 1
+        delay_seconds = initial_delay_seconds
+        while True:
+            try:
+                return self.connector.generate_response(messages, max_tokens)
+            except Exception as error:
+                if attempt_number >= max_attempts:
+                    raise
+                if verbose:
+                    print(
+                        f"⚠️ Falha na chamada ao modelo (tentativa {attempt_number}/{max_attempts}): {error}. "
+                        f"Retentando em {delay_seconds:.1f}s"
+                    )
+                time.sleep(delay_seconds)
+                attempt_number += 1
+                delay_seconds *= backoff_multiplier
     
     def analyze_document(
         self, 
@@ -163,15 +191,22 @@ class AIAnalyzer:
         
         max_tokens = min(tokens * 2, MAX_TOKENS)
         
-        # Gera resposta via conector
+        # Gera resposta via conector com retry e também re-tenta em caso de JSON inválido
         try:
-            resposta_texto = self.connector.generate_response(messages, max_tokens)
-            
-            # if verbose:
-            #     print(f"🤖 Resposta da IA: {resposta_texto[:200]}...")
-            
-            # Tenta fazer parse do JSON
-            try:
+            parse_max_attempts = 3
+            for attempt_index in range(1, parse_max_attempts + 1):
+                resposta_texto = self._generate_with_retry(
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    verbose=verbose,
+                    max_attempts=3,
+                    initial_delay_seconds=1.0,
+                    backoff_multiplier=2.0,
+                )
+
+                # if verbose:
+                #     print(f"🤖 Resposta da IA (tentativa {attempt_index}): {resposta_texto[:200]}...")
+
                 # Limpa possíveis formatações markdown
                 cleaned_result = resposta_texto.strip()
                 if cleaned_result.startswith('```json'):
@@ -179,34 +214,41 @@ class AIAnalyzer:
                 if cleaned_result.endswith('```'):
                     cleaned_result = cleaned_result[:-3]
                 cleaned_result = cleaned_result.strip()
-                
+
                 # Remove possíveis caracteres de escape problemáticos
                 cleaned_result = cleaned_result.replace('\\n', ' ').replace('\\r', ' ')
-                
-                data = json.loads(cleaned_result)
-                
-                # Garante que todas as chaves obrigatórias existam
-                required_keys = ["company", "date", "resumo"]
-                for key in required_keys:
-                    if key not in data:
-                        data[key] = ""
-                
-                data['tokens'] = tokens
 
-                return data
-                
-            except json.JSONDecodeError as e:
-                if verbose:
-                    print(f"❌ Erro ao fazer parse do JSON: {e}")
-                    print(f"Resposta recebida: {resposta_texto}")
-                return {
-                    "company": "",
-                    "date": "",
-                    "resumo": "",
-                    "error": "Erro no formato da resposta",
-                    "tokens": tokens
-                }
-                
+                try:
+                    data = json.loads(cleaned_result)
+
+                    # Garante que todas as chaves obrigatórias existam
+                    required_keys = ["company", "date", "resumo"]
+                    for key in required_keys:
+                        if key not in data:
+                            data[key] = ""
+
+                    data['tokens'] = tokens
+                    return data
+                except json.JSONDecodeError as parse_error:
+                    # Se não for a última tentativa, aguarda e tenta novamente buscando nova resposta
+                    if attempt_index < parse_max_attempts:
+                        if verbose:
+                            print(
+                                f"⚠️ Erro ao fazer parse do JSON (tentativa {attempt_index}/{parse_max_attempts}): {parse_error}. "
+                                f"Retentando em {1.0 * (2 ** (attempt_index - 1)):.1f}s"
+                            )
+                        time.sleep(1.0 * (2 ** (attempt_index - 1)))
+                        continue
+                    # Última tentativa: retorna erro
+                    if verbose:
+                        print(f"❌ Resposta recebida (inválida): {resposta_texto}")
+                    return {
+                        "company": "",
+                        "date": "",
+                        "resumo": "",
+                        "error": "Erro no formato da resposta",
+                        "tokens": tokens
+                    }
         except Exception as e:
             return {
                 "company": "",
